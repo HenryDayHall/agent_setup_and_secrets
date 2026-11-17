@@ -1,0 +1,15 @@
+GOOSE_MODE: smart_approve
+GOOSE_DISABLE_KEYRING: true
+# Room kept for each reply. Every model's context_limit in custom_providers/ is its
+# server window minus this, so change both together.
+GOOSE_MAX_TOKENS: 16384
+# Tool output longer than this many characters (~5k tokens) goes to a file in the box's
+# /tmp instead of into the conversation. Goose's default is 200000 characters.
+GOOSE_MAX_TOOL_RESPONSE_SIZE: 20000
+extensions:
+  developer:
+    bundled: true
+    enabled: true
+    name: developer
+    timeout: 300
+    type: builtin

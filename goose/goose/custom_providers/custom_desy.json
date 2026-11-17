@@ -1,0 +1,14 @@
+{
+  "name": "custom_desy",
+  "engine": "openai",
+  "display_name": "DESY Assistant",
+  "description": "assistant.desy.de through the agentbox proxy",
+  "api_key_env": "CUSTOM_DESY_API_KEY",
+  "base_url": "http://127.0.0.1:8080/desy/api/chat/completions",
+  "models": [
+    { "name": "coding", "context_limit": 1032192 },
+    { "name": "reasoning", "context_limit": 1032192 }
+  ],
+  "supports_streaming": true,
+  "requires_auth": true
+}

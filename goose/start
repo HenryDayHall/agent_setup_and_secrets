@@ -1,0 +1,25 @@
+#!/bin/bash
+# Runs inside the box. Refuses to start unless the box is sealed.
+set -euo pipefail
+fail() { echo "agentbox: $*; refusing to start" >&2; exit 1; }
+
+[[ $(grep -c : /proc/net/dev) == 1 ]] || fail "the box has a network interface besides loopback"
+for v in KRB5CCNAME SSH_AUTH_SOCK X509_USER_PROXY SLURM_CONF DESY_API_KEY BLABLADOR_API_KEY; do
+  [[ -z ${!v:-} ]] || fail "$v is set"
+done
+[[ ! -e /run/munge && ! -e $HOME/.ssh ]] || fail "munge socket or ~/.ssh is visible"
+[[ -S /run/agentbox/api.sock ]] || fail "proxy socket is missing"
+[[ -f $HOME/.config/goose/config.yaml ]] || fail "Goose config is missing"
+
+# Bridge the proxy socket onto the box's private loopback
+socat TCP-LISTEN:8080,bind=127.0.0.1,fork,reuseaddr UNIX-CONNECT:/run/agentbox/api.sock 2>/dev/null &
+export CUSTOM_DESY_API_KEY=placeholder CUSTOM_BLABLADOR_API_KEY=placeholder
+# With agentbox --net-allow: HTTPS to the listed hosts goes through the net proxy (section 5)
+if [[ -S /run/agentbox/net.sock ]]; then
+  socat TCP-LISTEN:3128,bind=127.0.0.1,fork,reuseaddr UNIX-CONNECT:/run/agentbox/net.sock 2>/dev/null &
+  export HTTPS_PROXY=http://127.0.0.1:3128 https_proxy=http://127.0.0.1:3128 \
+         NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost
+fi
+cd /work
+[[ -n ${AGENTBOX_SHELL:-} ]] && exec bash
+exec goose session

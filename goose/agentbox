@@ -1,0 +1,69 @@
+#!/bin/bash
+# usage: agentbox <workspace> [--api desy|blablador] [--model NAME] [--ro DIR]... [--rw DIR]...
+#                 [--net-allow pypi,github,HOST...] [--shell]
+set -euo pipefail
+AB=${AB:-/data/dust/user/$USER/agentbox}
+command -v apptainer >/dev/null || { echo "run: module load maxwell apptainer" >&2; exit 1; }
+WS=$(realpath "${1:?usage: agentbox <workspace> [options]}"); shift
+
+API=blablador; MODEL=; NET=; OPT=()
+while (($#)); do
+  case $1 in
+    --api)       API=$2; shift 2 ;;
+    --model)     MODEL=$2; shift 2 ;;
+    --ro)        d=$(realpath "$2"); OPT+=(--bind "$d:$d:ro"); shift 2 ;;
+    --rw)        d=$(realpath "$2"); OPT+=(--bind "$d:$d"); shift 2 ;;
+    --net-allow) NET=$2; shift 2 ;;
+    --shell)     OPT+=(--env AGENTBOX_SHELL=1); shift ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
+  esac
+done
+case $API in
+  desy)      MODEL=${MODEL:-coding};     OPT+=(--env GOOSE_PROVIDER=custom_desy) ;;
+  blablador) MODEL=${MODEL:-alias-code}; OPT+=(--env GOOSE_PROVIDER=custom_blablador) ;;
+  *) echo "--api must be desy or blablador" >&2; exit 2 ;;
+esac
+[[ $MODEL =~ ^[A-Za-z0-9._:/-]+$ ]] || { echo "--model: not a model name: $MODEL" >&2; exit 2; }
+OPT+=(--env "GOOSE_MODEL=$MODEL")
+
+# Git hooks, config and submodule settings can run commands as you outside the box,
+# so the box gets them read-only
+if [[ -d $WS/.git ]]; then
+  mkdir -p "$WS/.git/hooks" "$WS/.git/modules"
+  for p in hooks config modules; do OPT+=(--bind "$WS/.git/$p:/work/.git/$p:ro"); done
+fi
+if [[ -d /cvmfs ]]; then OPT+=(--bind /cvmfs:/cvmfs:ro); fi
+
+# Key proxy: only the keys this session needs are decrypted, into Caddy's environment only
+DESY=; BLAB=
+if [[ $API != blablador ]]; then DESY=$("$AB/secret.sh" get desy); fi
+if [[ $API != desy ]]; then BLAB=$("$AB/secret.sh" get blablador); fi
+RUN=$(mktemp -d /tmp/agentbox.XXXXXX)             # private (0700); short paths for the sockets
+AGENTBOX_RUN=$RUN DESY_API_KEY=$DESY BLABLADOR_API_KEY=$BLAB \
+  "$AB/bin/caddy" run --config "$AB/Caddyfile" >"$AB/proxy.log" 2>&1 &
+PROXY=$!
+unset DESY BLAB
+NETPROXY=
+if [[ -n $NET ]]; then                            # optional internet access, section 5
+  /usr/bin/python3 -I "$AB/netproxy.py" "$RUN/net.sock" "$NET" >>"$AB/net.log" 2>&1 &
+  NETPROXY=$!
+fi
+trap 'rm -rf "$RUN"; kill $PROXY $NETPROXY 2>/dev/null || true' EXIT
+for _ in $(seq 50); do [[ -S $RUN/api.sock && ( -z $NET || -S $RUN/net.sock ) ]] && break; sleep 0.1; done
+if [[ ! -S $RUN/api.sock ]]; then
+  echo "agentbox: key proxy did not start. End of $AB/proxy.log:" >&2; tail -n 5 "$AB/proxy.log" >&2; exit 1
+fi
+if [[ -n $NET && ! -S $RUN/net.sock ]]; then
+  echo "agentbox: net proxy did not start. End of $AB/net.log:" >&2; tail -n 5 "$AB/net.log" >&2; exit 1
+fi
+
+# The box: nothing from the host except what is listed here
+KEYRING=(); if command -v keyctl >/dev/null; then KEYRING=(keyctl session -); fi
+"${KEYRING[@]}" apptainer exec \
+  --containall --no-mount hostfs,cwd,bind-paths --net --network none \
+  --home "$AB/home:/home/agent" \
+  --bind "$WS:/work" \
+  --bind "$RUN:/run/agentbox" \
+  --bind "$AB/start:/opt/agentbox/start:ro" \
+  "${OPT[@]}" \
+  "$AB/agentbox.sif" /opt/agentbox/start

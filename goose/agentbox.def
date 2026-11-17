@@ -1,0 +1,10 @@
+Bootstrap: docker
+From: ghcr.io/key4hep/key4hep-images/alma9:latest
+
+%post
+    dnf -y install socat git bzip2 python3 texlive-latex texlive-pdftex
+    dnf clean all
+    curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh \
+      | GOOSE_BIN_DIR=/usr/local/bin CONFIGURE=false bash
+    mkdir -p /work /run/agentbox /opt/agentbox
+    touch /opt/agentbox/start

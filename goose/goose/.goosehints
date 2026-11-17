@@ -1,0 +1,6 @@
+Keep command output short; everything a command prints stays in the conversation.
+- Pipe output that may be long through `tail -n 40` or `grep`, and read big files in parts.
+- Run LaTeX as `pdflatex -interaction=batchmode -halt-on-error FILE.tex`; on failure,
+  look for lines starting with `!` in FILE.log rather than reading the whole log.
+- Use quiet flags: `pip install -q`, `pytest -q`, `make -s`, `git --no-pager log --oneline -20`.
+- Don't print whole datasets or CSVs; show `head`, `wc -l` or a summary instead.

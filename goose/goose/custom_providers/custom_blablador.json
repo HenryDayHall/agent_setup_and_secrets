@@ -1,0 +1,14 @@
+{
+  "name": "custom_blablador",
+  "engine": "openai",
+  "display_name": "Blablador",
+  "description": "Helmholtz Blablador through the agentbox proxy",
+  "api_key_env": "CUSTOM_BLABLADOR_API_KEY",
+  "base_url": "http://127.0.0.1:8080/blablador/v1/chat/completions",
+  "models": [
+    { "name": "alias-code", "context_limit": 81920 },
+    { "name": "alias-large", "context_limit": 245760 }
+  ],
+  "supports_streaming": true,
+  "requires_auth": true
+}

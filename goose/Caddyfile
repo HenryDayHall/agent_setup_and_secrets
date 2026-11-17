@@ -1,0 +1,24 @@
+{
+	admin off
+	persist_config off
+}
+
+http:// {
+	bind unix/{$AGENTBOX_RUN}/api.sock
+
+	handle_path /desy/* {
+		reverse_proxy https://assistant.desy.de {
+			header_up Host {upstream_hostport}
+			header_up Authorization "Bearer {env.DESY_API_KEY}"
+		}
+	}
+	handle_path /blablador/* {
+		reverse_proxy https://api.helmholtz-blablador.fz-juelich.de {
+			header_up Host {upstream_hostport}
+			header_up Authorization "Bearer {env.BLABLADOR_API_KEY}"
+		}
+	}
+	handle {
+		respond 404
+	}
+}
