@@ -136,7 +136,6 @@ What the main box flags in `agentbox` do:
 - `--net --network none` leaves the box with only a loopback interface.
 - `keyctl session -` gives the box an empty session keyring, so Kerberos and AFS tokens kept there stay outside.
 
-It also mounts the workspace's `.git/hooks`, `.git/config` and `.git/modules` read-only, because they can run commands as you outside the box.
 
 ## 2. Run a session
 
@@ -167,7 +166,6 @@ Inside a writable folder, Goose can do anything you can, including delete, so po
 $AB/agentbox $AB/ws/pi-demo --shell
 curl -m 5 https://example.com                           # fails: no network
 ls ~/.ssh /afs /data                                    # not there
-touch .git/hooks/x                                      # fails: read-only
 curl -s http://127.0.0.1:8080/blablador/v1/models | head -c 400   # works, via the proxy
 ```
 
@@ -188,10 +186,12 @@ In the Goose session, paste:
 
 Goose writes the script, runs it, reads the CSV, then writes and compiles the LaTeX, all inside the box. With `GOOSE_MODE: smart_approve` it asks before risky steps. Press Ctrl-D to leave.
 
-Back on the host, review what it did:
+Now we want to use git to review the new code on the host, but we need to be careful because git hooks can do arbitrary code execution.
+A local clone doesn't copy the hooks, so on the host we can do;
 
 ```bash
-cd $AB/ws/pi-demo
+git clone file://$AB/ws/pi-demo $AB/ws/pi-demo-review
+cd $AB/ws/pi-demo-review  # git hooks didn't get copied here
 git status && cat results.csv
 less summary.tex      # then open summary.pdf
 ```

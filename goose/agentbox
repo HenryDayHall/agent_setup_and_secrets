@@ -26,12 +26,6 @@ esac
 [[ $MODEL =~ ^[A-Za-z0-9._:/-]+$ ]] || { echo "--model: not a model name: $MODEL" >&2; exit 2; }
 OPT+=(--env "GOOSE_MODEL=$MODEL")
 
-# Git hooks, config and submodule settings can run commands as you outside the box,
-# so the box gets them read-only
-if [[ -d $WS/.git ]]; then
-  mkdir -p "$WS/.git/hooks" "$WS/.git/modules"
-  for p in hooks config modules; do OPT+=(--bind "$WS/.git/$p:/work/.git/$p:ro"); done
-fi
 if [[ -d /cvmfs ]]; then OPT+=(--bind /cvmfs:/cvmfs:ro); fi
 
 # Key proxy: only the keys this session needs are decrypted, into Caddy's environment only

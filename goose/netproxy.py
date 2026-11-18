@@ -33,7 +33,9 @@ SLOTS = threading.BoundedSemaphore(MAX_TUNNELS)
 
 
 def log(*msg):
-    print(time.strftime("%Y-%m-%d %H:%M:%S"), *msg, file=sys.stderr, flush=True)
+    # Since the log will likely be inspected by the host, ensure there are no terminal-escape injections
+    safe = (s.encode("unicode_escape").decode("ascii") if isinstance(s, str) else str(s) for s in msg)
+    print(time.strftime("%Y-%m-%d %H:%M:%S"), *safe, file=sys.stderr, flush=True)
 
 
 def blocked(ip):

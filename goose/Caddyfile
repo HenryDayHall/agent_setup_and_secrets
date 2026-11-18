@@ -6,18 +6,29 @@
 http:// {
 	bind unix/{$AGENTBOX_RUN}/api.sock
 
-	handle_path /desy/* {
+    # DESY in the agentbox should only want to connect to chat completions
+    # but giving access the the model list is safe
+    # and allows for a future where the agentbox was automatically picking it's own models
+    @desy path /desy/api/chat/completions /desy/api/models
+	handle @desy {
+        uri strip_prefix /desy
 		reverse_proxy https://assistant.desy.de {
 			header_up Host {upstream_hostport}
 			header_up Authorization "Bearer {env.DESY_API_KEY}"
 		}
 	}
+
+    # same logic for blablador
+    @blablador path /blablador/v1/chat/completions /blablador/v1/models
 	handle_path /blablador/* {
+        uri strip_prefix /blablador
 		reverse_proxy https://api.helmholtz-blablador.fz-juelich.de {
 			header_up Host {upstream_hostport}
 			header_up Authorization "Bearer {env.BLABLADOR_API_KEY}"
 		}
 	}
+
+    # Things that don't go one of those end points should be given "Not Found"
 	handle {
 		respond 404
 	}
