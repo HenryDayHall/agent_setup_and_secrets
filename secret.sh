@@ -25,7 +25,9 @@
 
 set -euo pipefail
 
-export GNUPGHOME=/tmp/gnupg-$USER && mkdir -p "$GNUPGHOME" && chmod 700 "$GNUPGHOME"
+# don't want gpg to use personal key storage
+# but also don't want to stick it in a place that could get DOS'd
+export GNUPGHOME=$(mktemp -d /tmp/gnupg-${USER}-XXXXXX)
 SECRET_DIR="${SECRET_DIR:-$HOME/.secrets}"
 SECRET_GPG_KEY="${SECRET_GPG_KEY:-}"
 SECRET_PASSPHRASE_FILE="${SECRET_PASSPHRASE_FILE:-}"
