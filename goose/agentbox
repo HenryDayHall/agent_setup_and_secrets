@@ -51,6 +51,30 @@ if [[ -n $NET && ! -S $RUN/net.sock ]]; then
   echo "agentbox: net proxy did not start. End of $AB/net.log:" >&2; tail -n 5 "$AB/net.log" >&2; exit 1
 fi
 
+# Apptainer also takes mounts and settings from the environment (APPTAINER_BIND,
+# SINGULARITY_BINDPATH, ..., often set in .bashrc or by a module). Drop them,
+# and say so, so a directory missing from the box isn't a mystery.
+dropped_mounts=(); dropped_other=()
+for v in $(compgen -e); do
+  case $v in
+    APPTAINER_CACHEDIR|APPTAINER_TMPDIR|SINGULARITY_CACHEDIR|SINGULARITY_TMPDIR) continue ;;
+    APPTAINER_BIND|APPTAINER_BINDPATH|APPTAINER_MOUNT|SINGULARITY_BIND|SINGULARITY_BINDPATH|SINGULARITY_MOUNT)
+      dropped_mounts+=("$v=${!v}") ;;
+    APPTAINER_*|SINGULARITY_*|APPTAINERENV_*|SINGULARITYENV_*)
+      dropped_other+=("$v") ;;                  # names only: APPTAINERENV_* values may be secrets
+    *) continue ;;
+  esac
+  unset "$v"
+done
+if ((${#dropped_mounts[@]})); then
+  echo "agentbox: ignoring mounts set in your environment; the box will not see:" >&2
+  printf '  %s\n' "${dropped_mounts[@]//[[:cntrl:]]/?}" >&2
+  echo "  To give the box a directory, add --ro DIR (read-only) or --rw DIR to this command." >&2
+fi
+if ((${#dropped_other[@]})); then
+  echo "agentbox: also ignoring these Apptainer settings from your environment: ${dropped_other[*]}" >&2
+fi
+
 # The box: nothing from the host except what is listed here
 KEYRING=(); if command -v keyctl >/dev/null; then KEYRING=(keyctl session -); fi
 box=("${KEYRING[@]}" apptainer exec \
