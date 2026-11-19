@@ -36,6 +36,7 @@ _da_seed_dir="$_da_script_dir/service_descriptions"
 _da_cache_dir="${DESY_AIDER_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/desy_aider}"
 _da_services=(desy blablador claude)
 
+
 # ---------------------------------------------------------------------------
 # Per-service facts. To add a service, extend each of these.
 # ---------------------------------------------------------------------------
@@ -342,6 +343,51 @@ _da_chosen_model() {
 }
 
 # ---------------------------------------------------------------------------
+# Security check
+# ---------------------------------------------------------------------------
+# If there is a .env file, aider will read that, we only want to read it in
+# trusted repos
+# Pass aider's arguments: aider also uses the repo of any file or
+# directory you name, and loads that repo's files.
+_da_repo_overrides() {
+    [[ ${AIDER_TRUST_REPO:-} == 1 ]] && return 0
+
+    local a d r f home found=() dirs=("$PWD") check=()
+    for a in "$@"; do
+        a=${a#--*=}                              # --file=x.py -> x.py
+        if [[ -d $a ]]; then dirs+=("$a")
+        elif [[ -e $a ]]; then dirs+=("$(dirname -- "$a")"); fi
+    done
+    for d in "${dirs[@]}"; do
+        check+=("$d")
+        r=$(_da_git_root "$d") && check+=("$r")
+    done
+    home=$(cd ~ && pwd -P)
+    for d in "${check[@]}"; do
+        d=$(cd -- "$d" 2>/dev/null && pwd -P) || continue
+        [[ $d == "$home" ]] && continue          # your own config lives here
+        for f in "$d"/{.env,.aider.conf.yml,.aider.model.settings.yml}; do
+            [[ -e $f && " ${found[*]} " != *" $f "* ]] && found+=("$f")
+        done
+    done
+    (( ${#found[@]} )) || return 0
+
+    # %q keeps names copy-pasteable and stops control characters reaching the terminal
+    {
+        echo "Not starting aider. It would load these files from the repository:"
+        printf '  %q\n' "${found[@]}"
+        echo "They can change aider's settings, for example to send your API key to"
+        echo "another server or to run commands without asking. Read them first."
+        echo
+        echo "If you trust them, start aider again with:"
+        printf '  AIDER_TRUST_REPO=1 aider'; printf ' %q' "$@"; echo
+        echo "Set it only on that command line. Exporting AIDER_TRUST_REPO in your"
+        echo "shell would switch this check off for every repository."
+    } >&2
+    return 1
+}
+
+# ---------------------------------------------------------------------------
 # The wrapper
 # ---------------------------------------------------------------------------
 
@@ -353,6 +399,8 @@ _da_default_weak="openai/desy-assistant"
 # The whole function runs in a subshell, so the keys it unlocks never end up
 # in your interactive shell.
 aider() (
+    # check for malicious repo content
+	_da_repo_overrides "$@" || exit 1
     # Things that don't talk to a model go straight through.
     local arg
     for arg in "$@"; do
