@@ -275,14 +275,14 @@ refresh_models() {
 # Secrets
 # ---------------------------------------------------------------------------
 _da_has_secret() {
-    "$_da_script_dir/secret.sh" list 2>/dev/null | grep -qx -- "$1"
+    "$_da_script_dir/../secret.sh" list 2>/dev/null | grep -qx -- "$1"
 }
 
 # _da_get_secrets <service>... : prints "<service><TAB><key>" lines. If the
 # secrets share a password, it is asked for only once (and gpg-agent, when
 # it works, remembers it for a while).
 _da_get_secrets() {
-    "$_da_script_dir/secret.sh" get-many "$@"
+    "$_da_script_dir/../secret.sh" get-many "$@"
 }
 
 # ---------------------------------------------------------------------------
@@ -456,7 +456,7 @@ aider() (
     done
     for service in "${needed[@]}"; do
         if ! _da_has_secret "$service"; then
-            echo "Error: no API key stored for $service. Store one with: $_da_script_dir/secret.sh set $service" >&2
+            echo "Error: no API key stored for $service. Store one with: $_da_script_dir/../secret.sh set $service" >&2
             exit 1
         fi
     done

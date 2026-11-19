@@ -192,9 +192,11 @@ A local clone doesn't copy the hooks, so on the host we can do;
 ```bash
 git clone file://$AB/ws/pi-demo $AB/ws/pi-demo-review
 cd $AB/ws/pi-demo-review  # git hooks didn't get copied here
-git status && cat results.csv
+git status && cat -v results.csv
 less summary.tex      # then open summary.pdf
 ```
+
+When reading content from the box `cat -v` is a little safer, because it converts non-printable characters to printable ones, which prevents terminal escapes.
 
 If `/cvmfs` is mounted on your node, you can instead ask Goose to `source /cvmfs/sw.hsf.org/key4hep/setup.sh` and do the same with ROOT. It runs in the same box.
 
@@ -231,7 +233,7 @@ curl -sSI https://example.com                         # fails: not on the list
 curl -sSI --noproxy '*' https://pypi.org/simple/      # fails: no way around the proxy
 ```
 
-Then run `cat $AB/net.log` on the host to see what was allowed and refused. When pip can't find a package or git can't reach a repository, a `DENY` line there names the host you would need to add.
+Then run `cat -v $AB/net.log` on the host to see what was allowed and refused. When pip can't find a package or git can't reach a repository, a `DENY` line there names the host you would need to add.
 
 DESY's own services, such as gitlab.desy.de, are refused even if you list them, because they have DESY addresses. The DESY ranges in `BLOCKED` in `netproxy.py` come from the RIPE database; add any other internal ranges DESY IT lists to your copy. The proxy connects directly, so use it on a node with outbound internet, such as a login node.
 
