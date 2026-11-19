@@ -20,7 +20,7 @@ http:// {
 
     # same logic for blablador
     @blablador path /blablador/v1/chat/completions /blablador/v1/models
-	handle_path /blablador/* {
+	handle @blablador {
         uri strip_prefix /blablador
 		reverse_proxy https://api.helmholtz-blablador.fz-juelich.de {
 			header_up Host {upstream_hostport}
