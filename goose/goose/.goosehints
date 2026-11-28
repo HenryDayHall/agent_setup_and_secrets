@@ -4,3 +4,6 @@ Keep command output short; everything a command prints stays in the conversation
   look for lines starting with `!` in FILE.log rather than reading the whole log.
 - Use quiet flags: `pip install -q`, `pytest -q`, `make -s`, `git --no-pager log --oneline -20`.
 - Don't print whole datasets or CSVs; show `head`, `wc -l` or a summary instead.
+
+The workspace's .git is read-only: use git to read history and diffs, but don't try to
+commit. Leave your changes uncommitted for the user to review.

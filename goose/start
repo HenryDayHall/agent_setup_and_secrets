@@ -8,6 +8,7 @@ for v in KRB5CCNAME SSH_AUTH_SOCK X509_USER_PROXY SLURM_CONF DESY_API_KEY BLABLA
   [[ -z ${!v:-} ]] || fail "$v is set"
 done
 [[ ! -e /run/munge && ! -e $HOME/.ssh ]] || fail "munge socket or ~/.ssh is visible"
+[[ ! -e /work/.git || ! -w /work/.git ]] || fail "the workspace's .git is writable"
 [[ -S /run/agentbox/api.sock ]] || fail "proxy socket is missing"
 [[ -f $HOME/.config/goose/config.yaml ]] || fail "Goose config is missing"
 

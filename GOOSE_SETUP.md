@@ -96,7 +96,7 @@ There are two custom providers, one for each API. Both point Goose at the proxy,
 
 ```bash
 G=$AB/home/.config/goose
-install -m 644 $SRC/goose/config.yaml $G/config.yaml
+install -m 644 $SRC/goose/config.yaml $SRC/goose/.goosehints $G/
 install -m 644 $SRC/goose/custom_providers/custom_desy.json \
                $SRC/goose/custom_providers/custom_blablador.json $G/custom_providers/
 ```
@@ -121,7 +121,7 @@ Each model's context window is its `context_limit` in the provider file. `GOOSE_
 install -m 755 $SRC/start $SRC/agentbox $AB/
 ```
 
-`start` runs inside the box. It refuses to launch Goose unless the box is sealed: only a loopback interface, no Kerberos, SSH, X.509, Slurm or API-key variables, no munge socket or `~/.ssh`, and the proxy socket and Goose config present. It then bridges the proxy socket to port 8080 on the box's loopback (and the net proxy to port 3128, with `--net-allow`) and starts `goose session` in `/work`.
+`start` runs inside the box. It refuses to launch Goose unless the box is sealed: only a loopback interface, no Kerberos, SSH, X.509, Slurm or API-key variables, no munge socket or `~/.ssh`, no writable `.git` in the workspace, and the proxy socket and Goose config present. It then bridges the proxy socket to port 8080 on the box's loopback (and the net proxy to port 3128, with `--net-allow`) and starts `goose session` in `/work`.
 
 `agentbox` runs on the host. It does three things:
 
@@ -135,13 +135,14 @@ What the main box flags in `agentbox` do:
 - `--no-mount hostfs,cwd,bind-paths` drops the mounts Apptainer or the site would add by default.
 - `--net --network none` leaves the box with only a loopback interface.
 - `keyctl session -` gives the box an empty session keyring, so Kerberos and AFS tokens kept there stay outside.
+- The workspace's `.git` is mounted read-only, because hooks and config there run as you whenever you use git on the host. Goose can still read the history, but it can't commit. With no `.git`, `agentbox` warns, at the start and again on exit, because Goose could create one. A `.git` that is a symlink is refused, because the mount would follow it out of the workspace.
 
 
 ## 2. Run a session
 
 ```bash
 module load maxwell apptainer
-mkdir -p $AB/ws/pi-demo && cd $AB/ws/pi-demo && git init -q
+mkdir -p $AB/ws/pi-demo && cd $AB/ws/pi-demo && git init -q   # a .git to mount read-only
 $AB/agentbox $AB/ws/pi-demo --api blablador        # or: --api desy
 ```
 
@@ -168,6 +169,7 @@ Inside a writable folder, Goose can do anything you can, including delete, so po
 $AB/agentbox $AB/ws/pi-demo --shell
 curl -m 5 https://example.com                           # fails: no network
 ls ~/.ssh /afs /data                                    # not there
+touch .git/x                                            # fails: read-only
 curl -s http://127.0.0.1:8080/blablador/v1/models | head -c 400   # works, via the proxy
 ```
 
@@ -188,15 +190,15 @@ In the Goose session, paste:
 
 Goose writes the script, runs it, reads the CSV, then writes and compiles the LaTeX, all inside the box. With `GOOSE_MODE: smart_approve` it asks before risky steps. Press Ctrl-D to leave.
 
-Now we want to use git to review the new code on the host, but we need to be careful because git hooks can do arbitrary code execution.
-A local clone doesn't copy the hooks, so on the host we can do;
+Now review the new code on the host. Git hooks and config can run arbitrary commands as you, but the workspace's `.git` was read-only, so Goose couldn't plant any there. Goose couldn't commit either, so its work is waiting, uncommitted, in the workspace:
 
 ```bash
-git clone file://$AB/ws/pi-demo $AB/ws/pi-demo-review
-cd $AB/ws/pi-demo-review  # git hooks didn't get copied here
+cd $AB/ws/pi-demo
 git status && cat results.csv
 less summary.tex      # then open summary.pdf
 ```
+
+That protection covers the top-level `.git` only, and only if it existed when the session started (`agentbox` warns if not). A `.git` in a subfolder, such as a submodule or a repository Goose created, is not protected: list them with `find . -mindepth 2 -name .git`, and don't run git inside them until you have checked them.
 
 If `/cvmfs` is mounted on your node, you can instead ask Goose to `source /cvmfs/sw.hsf.org/key4hep/setup.sh` and do the same with ROOT. It runs in the same box.
 
@@ -251,7 +253,7 @@ If you know the packages in advance, there are safer options. You can install th
 - **Where the keys are.** They exist only in `~/.secrets/*.gpg` (encrypted), and in Caddy's memory while a session runs.
   - Never `export` a key in your shell: `sbatch` copies your environment into the job record.
   - Don't run `goose configure` for these providers. On a headless machine Goose stores keys in a plain-text `secrets.yaml`.
-- **Updating the files.** `cd $AB/agent_setup_and_secrets && git pull`, then compare with your copies, for example `diff $SRC/agentbox $AB/agentbox`, before copying again. Keep your own edits (`context_limit`, partition, extra `BLOCKED` ranges) when you do.
+- **Updating the files.** `cd $AB/agent_setup_and_secrets && git pull`, then compare with your copies, for example `diff $SRC/agentbox $AB/agentbox`, before copying again. Keep your own edits (`context_limit`, partition, extra `BLOCKED` ranges) when you do. Copy `start` and `agentbox` together: `start` checks the mounts that `agentbox` sets up.
 - **Tool calling.** Goose needs a model that supports OpenAI-style tool calls. If it only chats and never runs anything, try another model.
 - **Blablador models.** The `alias-*` names stay the same but point at newer models over time. The token expires after at most a year.
 - **Troubleshooting.** The proxy log is `$AB/proxy.log`. A request that hangs usually means the node can't reach that API. If a `/cvmfs` repository looks empty in the box, run `ls /cvmfs/sw.hsf.org` on the host first so autofs mounts it. With `--net-allow`, `$AB/net.log` names the rule behind each refusal.

@@ -9,7 +9,7 @@ Files for the "Goose in a sealed Apptainer box on Maxwell" tutorial. Copy each o
 | `agentbox.def` | `$AB/agentbox.def` | build time | 1.3 image definition |
 | `Caddyfile` | `$AB/Caddyfile` | host | 1.4 key proxy config (no secrets) |
 | `goose/config.yaml` | `$AB/home/.config/goose/` | box | 1.5 Goose settings |
-| `goose/.goosehints` | `$AB/home/.config/goose/` | box | 1.5 global hints: keep tool output short |
+| `goose/.goosehints` | `$AB/home/.config/goose/` | box | 1.5 global hints: keep tool output short, don't commit |
 | `goose/custom_providers/*.json` | `$AB/home/.config/goose/custom_providers/` | box | 1.5 DESY and Blablador providers |
 | `start` | `$AB/start` (755) | box | 1.6 seal check, then Goose |
 | `agentbox` | `$AB/agentbox` (755) | host | 1.6 launcher |

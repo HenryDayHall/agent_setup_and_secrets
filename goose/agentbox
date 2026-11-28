@@ -41,6 +41,18 @@ OPT+=(--env "GOOSE_MODEL=$MODEL")
 
 if [[ -d /cvmfs ]]; then OPT+=(--bind /cvmfs:/cvmfs:ro); fi
 
+# Goose can read the workspace's .git but not change it: hooks and config there run as
+# you whenever you use git on the host. A symlinked .git would take the mount anywhere.
+GIT_RO=(); WARN=
+if [[ -L $WS/.git ]]; then
+  echo "agentbox: $WS/.git is a symlink (a box may have planted it); check it, and put the real .git there" >&2; exit 2
+elif [[ -e $WS/.git ]]; then
+  GIT_RO=(--bind "$WS/.git:/work/.git:ro")
+else
+  WARN="no .git in $WS, so none is mounted read-only; Goose can create one whose config runs commands, so git commands there may not be safe after the session"
+  echo "agentbox: warning: $WARN" >&2
+fi
+
 # Key proxy: only the keys this session needs are decrypted, into Caddy's environment only
 DESY=; BLAB=
 if [[ $API != blablador ]]; then DESY=$("$AB/secret.sh" get desy); fi
@@ -55,7 +67,8 @@ if [[ -n $NET ]]; then                            # optional internet access, se
   /usr/bin/python3 -I "$AB/netproxy.py" "$RUN/net.sock" "$NET" >>"$AB/net.log" 2>&1 &
   NETPROXY=$!
 fi
-trap 'rm -rf "$RUN"; kill $PROXY $NETPROXY 2>/dev/null || true' EXIT
+trap 'rm -rf "$RUN"; kill $PROXY $NETPROXY 2>/dev/null || true
+      [[ -z $WARN ]] || echo "agentbox: warning: $WARN" >&2' EXIT   # again, after Goose's output
 for _ in $(seq 50); do [[ -S $RUN/api.sock && ( -z $NET || -S $RUN/net.sock ) ]] && break; sleep 0.1; done
 if [[ ! -S $RUN/api.sock ]]; then
   echo "agentbox: key proxy did not start. End of $AB/proxy.log:" >&2; tail -n 5 "$AB/proxy.log" >&2; exit 1
@@ -70,6 +83,7 @@ KEYRING=(); if command -v keyctl >/dev/null; then KEYRING=(keyctl session -); fi
   --containall --no-mount hostfs,cwd,bind-paths --net --network none \
   --home "$AB/home:/home/agent" \
   --bind "$WS:/work" \
+  "${GIT_RO[@]}" \
   --bind "$RUN:/run/agentbox" \
   --bind "$AB/start:/opt/agentbox/start:ro" \
   "${OPT[@]}" \
