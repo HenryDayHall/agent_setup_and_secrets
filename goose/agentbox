@@ -4,15 +4,28 @@
 set -euo pipefail
 AB=${AB:-/data/dust/user/$USER/agentbox}
 command -v apptainer >/dev/null || { echo "run: module load maxwell apptainer" >&2; exit 1; }
-WS=$(realpath "${1:?usage: agentbox <workspace> [options]}"); shift
+
+# Never mount your home, the key store or this setup ($AB, and wherever this script
+# lives: they hold the scripts that handle your keys outside the box), nor a folder above them
+KEEP=("$HOME" "${SECRET_DIR:-$HOME/.secrets}" "$AB" "$(dirname -- "$(realpath -- "$0")")")
+mountable() {   # mountable DIR: sets d to DIR's real path, refusing anything in KEEP
+  local k
+  d=$(realpath -- "$1")
+  [[ -e $d ]] || { echo "agentbox: no such file or folder: $1" >&2; exit 2; }
+  for k in "${KEEP[@]}"; do
+    k=$(realpath -m -- "$k")
+    [[ $k/ != "${d%/}"/* ]] || { echo "agentbox: won't mount $d: it is or holds $k" >&2; exit 2; }
+  done
+}
+mountable "${1:?usage: agentbox <workspace> [options]}"; WS=$d; shift
 
 API=blablador; MODEL=; NET=; OPT=()
 while (($#)); do
   case $1 in
     --api)       API=$2; shift 2 ;;
     --model)     MODEL=$2; shift 2 ;;
-    --ro)        d=$(realpath "$2"); OPT+=(--bind "$d:$d:ro"); shift 2 ;;
-    --rw)        d=$(realpath "$2"); OPT+=(--bind "$d:$d"); shift 2 ;;
+    --ro)        mountable "$2"; OPT+=(--bind "$d:$d:ro"); shift 2 ;;
+    --rw)        mountable "$2"; OPT+=(--bind "$d:$d"); shift 2 ;;
     --net-allow) NET=$2; shift 2 ;;
     --shell)     OPT+=(--env AGENTBOX_SHELL=1); shift ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;

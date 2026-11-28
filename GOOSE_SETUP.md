@@ -160,6 +160,8 @@ You are asked for the passphrase of each key the session needs, then Goose start
 
 Inside a writable folder, Goose can do anything you can, including delete, so point `--rw` at a dedicated folder.
 
+`agentbox` won't mount your home, your key store (`~/.secrets`) or `$AB`, nor any folder above them, as the workspace or with `--ro`/`--rw`: Goose could read your keys there, or rewrite the scripts that handle them outside the box. Folders below your home, such as `~/projects/foo`, are fine. Don't hand it a clone of this repository either, because the `aider` function runs its scripts outside any box.
+
 **Check the seal once.** Start a shell in the box instead of Goose:
 
 ```bash
