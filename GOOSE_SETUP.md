@@ -142,10 +142,11 @@ What the main box flags in `agentbox` do:
 ## 2. Run a session
 
 ```bash
-module load maxwell apptainer
 mkdir -p $AB/ws/pi-demo && cd $AB/ws/pi-demo && git init -q   # a .git to mount read-only
 $AB/agentbox $AB/ws/pi-demo --api blablador        # or: --api desy
 ```
+
+If apptainer isn't on your `PATH`, `agentbox` runs `module load maxwell apptainer` itself.
 
 You are asked for the passphrase of each key the session needs, then Goose starts inside the box.
 

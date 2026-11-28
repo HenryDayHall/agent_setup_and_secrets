@@ -3,7 +3,20 @@
 #                 [--net-allow pypi,github,HOST...] [--shell]
 set -euo pipefail
 AB=${AB:-/data/dust/user/$USER/agentbox}
-command -v apptainer >/dev/null || { echo "run: module load maxwell apptainer" >&2; exit 1; }
+# On Maxwell apptainer is a module. A script only has the module command if the site
+# exports it, so fall back to the modules init file. Neither is written for set -eu.
+if ! command -v apptainer >/dev/null; then
+  set +eu
+  if ! type module &>/dev/null; then
+    for f in "${MODULESHOME:-/usr/share/Modules}/init/bash" /etc/profile.d/modules.sh; do
+      # shellcheck source=/dev/null  # the site's file
+      if [[ -r $f ]]; then . "$f"; break; fi
+    done
+  fi
+  type module &>/dev/null && module load maxwell apptainer &>/dev/null
+  set -eu
+  command -v apptainer >/dev/null || { echo "agentbox: no apptainer, and \`module load maxwell apptainer\` didn't provide one" >&2; exit 1; }
+fi
 
 # Never mount your home, the key store or this setup ($AB, and wherever this script
 # lives: they hold the scripts that handle your keys outside the box), nor a folder above them
