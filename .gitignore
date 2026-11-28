@@ -1,0 +1,5 @@
+# In case you put your API keys here...
+.env
+# ...or in an aider config at the top of this repo, next to aider's history files.
+# (Only at the top: aider/confs/ holds the tracked example configs.)
+/.aider*
