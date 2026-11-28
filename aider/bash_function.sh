@@ -253,7 +253,10 @@ _da_is_stale() {
     [[ ! -s "$file" ]] || [[ -n "$(find "$file" -mmin +1440 2>/dev/null)" ]]
 }
 
-refresh_models() {
+# Like aider() below, this runs in a subshell with tracing off, so neither your
+# shell nor a `set -x` trace ever sees the keys.
+refresh_models() (
+    { set +x; } 2>/dev/null
     local requested=("$@") available=() service key
     (( ${#requested[@]} )) || requested=("${_da_services[@]}")
     for service in "${requested[@]}"; do
@@ -269,7 +272,7 @@ refresh_models() {
         _da_fetch_models "$service" "$key"
     done < <(_da_get_secrets "${available[@]}")
     unset key
-}
+)
 
 # ---------------------------------------------------------------------------
 # Secrets
@@ -352,8 +355,10 @@ _da_default_editor="openai/coding"
 _da_default_weak="openai/desy-assistant"
 
 # The whole function runs in a subshell, so the keys it unlocks never end up
-# in your interactive shell.
+# in your interactive shell. Tracing is off in there, even if your shell has
+# `set -x`, because the trace would show them.
 aider() (
+    { set +x; } 2>/dev/null
     # Things that don't talk to a model go straight through.
     local arg
     for arg in "$@"; do

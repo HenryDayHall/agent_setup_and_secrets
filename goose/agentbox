@@ -53,7 +53,9 @@ else
   echo "agentbox: warning: $WARN" >&2
 fi
 
-# Key proxy: only the keys this session needs are decrypted, into Caddy's environment only
+# Key proxy: only the keys this session needs are decrypted, into Caddy's environment only.
+# No tracing meanwhile, even under `bash -x agentbox`: the trace would show the keys.
+TRACED=${-//[!x]/}; { set +x; } 2>/dev/null
 DESY=; BLAB=
 if [[ $API != blablador ]]; then DESY=$("$AB/secret.sh" get desy); fi
 if [[ $API != desy ]]; then BLAB=$("$AB/secret.sh" get blablador); fi
@@ -62,6 +64,7 @@ AGENTBOX_RUN=$RUN DESY_API_KEY=$DESY BLABLADOR_API_KEY=$BLAB \
   "$AB/bin/caddy" run --config "$AB/Caddyfile" >"$AB/proxy.log" 2>&1 &
 PROXY=$!
 unset DESY BLAB
+if [[ -n $TRACED ]]; then set -x; fi
 NETPROXY=
 if [[ -n $NET ]]; then                            # optional internet access, section 5
   /usr/bin/python3 -I "$AB/netproxy.py" "$RUN/net.sock" "$NET" >>"$AB/net.log" 2>&1 &
