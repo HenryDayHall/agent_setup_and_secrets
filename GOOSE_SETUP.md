@@ -121,7 +121,7 @@ Each model's context window is its `context_limit` in the provider file. `GOOSE_
 install -m 755 $SRC/start $SRC/agentbox $AB/
 ```
 
-`start` runs inside the box. It refuses to launch Goose unless the box is sealed: only a loopback interface, no Kerberos, SSH, X.509, Slurm or API-key variables, no munge socket or `~/.ssh`, no writable `.git` in the workspace, and the proxy socket and Goose config present. It then bridges the proxy socket to port 8080 on the box's loopback (and the net proxy to port 3128, with `--net-allow`) and starts `goose session` in `/work`.
+`start` runs inside the box. It refuses to launch Goose unless the box is sealed: only a loopback interface, no Kerberos, SSH, X.509, Slurm or API-key variables, no munge socket or `~/.ssh`, no writable `.git` in the workspace, the proxy socket present in a read-only folder, and the Goose config present. It then bridges the proxy socket to port 8080 on the box's loopback (and the net proxy to port 3128, with `--net-allow`) and starts `goose session` in `/work`.
 
 `agentbox` runs on the host. It does three things:
 
@@ -136,6 +136,7 @@ What the main box flags in `agentbox` do:
 - `--net --network none` leaves the box with only a loopback interface.
 - `keyctl session -` gives the box an empty session keyring, so Kerberos and AFS tokens kept there stay outside.
 - The workspace's `.git` is mounted read-only, because hooks and config there run as you whenever you use git on the host. Goose can still read the history, but it can't commit. With no `.git`, `agentbox` warns, at the start and again on exit, because Goose could create one. A `.git` that is a symlink is refused, because the mount would follow it out of the workspace.
+- The proxy sockets come in through a read-only folder, so the box can connect to them but can't replace them or write into the node's `/tmp`, where that folder lives.
 
 
 ## 2. Run a session
@@ -169,7 +170,7 @@ Inside a writable folder, Goose can do anything you can, including delete, so po
 $AB/agentbox $AB/ws/pi-demo --shell
 curl -m 5 https://example.com                           # fails: no network
 ls ~/.ssh /afs /data                                    # not there
-touch .git/x                                            # fails: read-only
+touch .git/x /run/agentbox/x                            # both fail: read-only
 curl -s http://127.0.0.1:8080/blablador/v1/models | head -c 400   # works, via the proxy
 ```
 

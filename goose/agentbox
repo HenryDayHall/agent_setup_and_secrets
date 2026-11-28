@@ -57,7 +57,7 @@ fi
 DESY=; BLAB=
 if [[ $API != blablador ]]; then DESY=$("$AB/secret.sh" get desy); fi
 if [[ $API != desy ]]; then BLAB=$("$AB/secret.sh" get blablador); fi
-RUN=$(mktemp -d /tmp/agentbox.XXXXXX)             # private (0700); short paths for the sockets
+RUN=$(mktemp -d /tmp/agentbox.XXXXXX)             # private (0700); short paths for the sockets; read-only in the box
 AGENTBOX_RUN=$RUN DESY_API_KEY=$DESY BLABLADOR_API_KEY=$BLAB \
   "$AB/bin/caddy" run --config "$AB/Caddyfile" >"$AB/proxy.log" 2>&1 &
 PROXY=$!
@@ -84,7 +84,7 @@ KEYRING=(); if command -v keyctl >/dev/null; then KEYRING=(keyctl session -); fi
   --home "$AB/home:/home/agent" \
   --bind "$WS:/work" \
   "${GIT_RO[@]}" \
-  --bind "$RUN:/run/agentbox" \
+  --bind "$RUN:/run/agentbox:ro" \
   --bind "$AB/start:/opt/agentbox/start:ro" \
   "${OPT[@]}" \
   "$AB/agentbox.sif" /opt/agentbox/start
